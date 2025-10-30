@@ -1,11 +1,11 @@
 ---
-title: "Proposal title"
+title: "Predicting Diabetes Using Ensemble Methods"
 subtitle: "Proposal"
 author: 
-  - name: "Team Name - Team member 1, Team member 2,..."
+  - name: "Samantha Whitewater"
     affiliations:
       - name: "College of Information Science, University of Arizona"
-description: "Project description"
+description: "Comparative analysis of ensemble classification methods for diabetes predcition. Incorporates SMOTE to address imbalances and uses an interactive dashboard for visualization."
 format:
   html:
     code-tools: true
