@@ -1,11 +1,11 @@
 ---
-title: "Predicting Diabetes Using Ensemble Methods"
-subtitle: "Proposal"
+title: "Predicting Diabetes Using Ensemble Methods and SMOTE"
+subtitle: "Project proposal"
 author: 
   - name: "Samantha Whitewater"
     affiliations:
       - name: "College of Information Science, University of Arizona"
-description: "Comparative analysis of ensemble classification methods for diabetes predcition. Incorporates SMOTE to address imbalances and uses an interactive dashboard for visualization."
+description: "A comparative analysis of ensemble classification methods for diabetes prediction, incorporating SMOTE to address class imbalance, with a Streamlit dashboard for visualization and prediction."
 format:
   html:
     code-tools: true
@@ -22,25 +22,132 @@ jupyter: python3
 ```{python}
 #| label: load-pkgs
 #| message: false
+
+#import libraries
+import pandas as pd
 import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier, AdaBoostClassifier
+from sklearn.metrics import classification_report, confusion_matrix, roc_auc_score
+from imblearn.over_sampling import SMOTE
+
+print("all packages loaded successfully")
 ```
 
-## Dataset
+##dataset
 
 ```{python}
 #| label: load-dataset
 #| message: false
-#loading Pima Indians Diabetes dataset
+
+#load the Pima Indians Diabetes dataset
+url = "https://raw.githubusercontent.com/jbrownlee/Datasets/master/pima-indians-diabetes.data.csv"
+column_names = ['Pregnancies', 'Glucose', 'BloodPressure', 'SkinThickness', 
+                'Insulin', 'BMI', 'DiabetesPedigreeFunction', 'Age', 'Outcome']
+df = pd.read_csv(url, names=column_names)
+
+#basic information
+print(f"\n dataset Information:")
+print(f"   -dataset shape: {df.shape}")
+print(f"   -number of rows: {df.shape[0]}")
+print(f"   -number of columns: {df.shape[1]}")
+print(f"\n   first few rows:")
+display(df.head())
+
+print(f"\n   data types:")
+display(df.dtypes)
+
+print(f"\n   summary statistics:")
+display(df.describe())
+
+#class distribution
+print(f"\n   class distribution:")
+print(df['Outcome'].value_counts())
+print(f"\n   percentage w diabetes: {(df['Outcome'].sum() / len(df)) * 100:.1f}%")
 ```
 
-A brief description of your dataset including its provenance, dimensions, etc. as well as the reason why you chose this dataset.
+about this dataset:
 
-Make sure to load the data and use inline code for some of this information.
+The Pima Indians Diabetes Database was originally collected by the National 
+Institute of Diabetes and Digestive and Kidney Diseases. The dataset contains 
+diagnostic measurements from 768 Pima Indian female patients, all 
+at least 21 years old.
 
-## Questions
+It includes 8 predictor variables:
+  - Pregnancies
+  - Glucose
+  - Blood Pressure
+  - Skin Thicknes
+  - Insulin
+  - BMI
+  - Diabetes Pedigree Function
+  - Age
 
-The two questions you want to answer.
+
+reasons for choosing:
+
+I chose this dataset because it presents a realistic healthcare prediction 
+challenge with class imbalance. This is common in medical datasets where 
+disease cases are less frequent than non-disease cases. This allows me to 
+explore SMOTE (Synthetic Minority Over-sampling Technique) as my self-taught 
+element to improve model performance on the data. Also, the 
+dataset is well-documented, manageable in size for a solo project and has 
+clear clinical relevance for diabetes risk prediction.
+
+## questions
+
+research questions:
+
+- which ensemble classification method performs the best for predicting diabetes in the dataset?
+
+- How does applying SMOTE to address class imbalance affect the performance 
+   of ensemble models compared to training on the original imbalanced dataset?
 
 ## Analysis plan
 
--   A plan for answering each of the questions including the variables involved, variables to be created (if any), external data to be merged in (if any).
+analysis 1:
+
+Q1: Comparing Ensemble Methods
+
+Variables involved:
+  - Predictors: All 8 clinical measurements
+  - Target: Outcome (binary: 0 = no diabetes, 1 = diabetes)
+
+Analysis approach:
+  - Split dataset into training (80%) and testing (20%) sets
+  - Train three ensemble models: Random Forest, Gradient Boosting, AdaBoost
+  - Evaluate using: accuracy, precision, recall
+  - Compare performance with confusion matrices and ROC curves
+  - Analyze feature importance for each model
+
+Variables to be created:
+  - Standardized/normalized features
+  - Predicted probabilities and class labels
+
+Q2: Impact of SMOTE on Model Performance
+
+Variables involved:
+  - Same predictor and target variables
+  - Class distribution before and after SMOTE
+
+Analysis approach:
+  - Analyze initial class imbalance in training set
+  - Apply SMOTE only to training data to generate synthetic samples
+  - Train same three ensemble models on SMOTE-balanced data
+  - Evaluate on original test set
+  - Compare metrics between original v SMOTE-balanced model
+  - Visualize differences
+
+Variables to be created:
+  - SMOTE-balanced training dataset
+  - Separate performance metrics for original v SMOTE-balanced models
+  - Comparison visualizations
+
+Delverables:
+
+Streamlit dashboard with:
+  - Prediction interface
+  - Performance comparison visualizations
+  - Feature importance plots
