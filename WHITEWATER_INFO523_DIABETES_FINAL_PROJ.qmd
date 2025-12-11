@@ -1,6 +1,6 @@
 ---
 title: "Predicting Diabetes Using Ensemble Methods and SMOTE"
-subtitle: "Final Project Report"
+subtitle: "Final Project"
 author: 
   - name: "Samantha Whitewater"
     affiliations:
@@ -340,3 +340,4 @@ In a real-world application, the SMOTE-adjusted Gradient Boosting model could be
 # Conclusion
 
 This project showed that class imbalance has a large impact on model performance. Before SMOTE was applied, the best model, AdaBoost, had reasonable accuracy but missed a large portion of positive cases which rendered it unsuitable for healthcare use. Once SMOTE was applied, recall improved across all models and Gradient Boosting became the best performing model with nearly 80% accuracy and 70% recall. The adjusted model still falls short of identifying diabetic patients reliably but shows value as a screening tool rather than a diagnostic substitute. The small sample size and class imbalance limit the generalization of the results, so a larger dataset would be ideal for building a more robust model. Regardless, the project shows how data balancing techniques like SMOTE can help improve detection rates in healthcare datasets.
+
