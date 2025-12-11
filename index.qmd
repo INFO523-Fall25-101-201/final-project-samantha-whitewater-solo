@@ -1,11 +1,10 @@
 ---
-title: "Project Title"
+title: "Predicting Diabetes"
 subtitle: "INFO 523 - Final Project"
 author: 
-  - name: "Team name - Team member 1, Team member 2,..."
+  - name: "Samantha Whitewater"
     affiliations:
       - name: "College of Information Science, University of Arizona"
-description: "Project description"
 format:
    html:
     code-tools: true
@@ -17,7 +16,3 @@ execute:
   echo: false
 jupyter: python3
 ---
-
-## Abstract
-
-Add project abstract here.
