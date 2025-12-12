@@ -1,0 +1,343 @@
+---
+title: "Predicting Diabetes Using Ensemble Methods and SMOTE"
+subtitle: "Final Project"
+author: 
+  - name: "Samantha Whitewater"
+    affiliations:
+      - name: "College of Information Science, University of Arizona"
+description: "A comparative analysis of ensemble classification methods for diabetes prediction incorporating SMOTE to address class imbalance, with a Streamlit dashboard for visualization and prediction."
+format:
+  html:
+    code-tools: true
+    code-overflow: wrap
+    code-line-numbers: true
+    embed-resources: true
+    toc: true
+    toc-depth: 3
+editor: visual
+code-annotations: hover
+execute:
+  warning: false
+jupyter: python3
+---
+
+# Introduction
+
+Diabetes is a disease that affects millions of people with significant implications for public health and healthcare costs. Early detection and risk prediction are important for preventing complications and improving patient outcomes. Machine learning offers tools that can help us identify individuals at high risk of developing diabetes which enables earlier interventions.
+
+This project focuses on predicting diabetes using the Pima Indians Diabetes Database which presents a healthcare prediction challenge. Like many medical datasets, this data exhibits class imbalance where disease cases (diabetes-positive) are less frequent than non-disease cases. This imbalance affects model performance because algorithms may struggle to accurately identify the minority class. To address this, I use SMOTE (synthetic minority oversampling technique) as a method to improve model performance by balancing the training data.
+
+The analysis compares three ensemble classification methods: random forest, gradient boosting, and Ada boost. Ensemble methods combine multiple models to diversify predictions which helps make them well-suited for healthcare data.
+
+This project addresses two questions:
+
+1.  Which ensemble classification method performs the best for predicting diabetes in this dataset?
+2.  How does applying SMOTE to address class imbalance affect the performance of ensemble models compared to training on the original imbalanced dataset?
+
+# Dataset
+
+## Overview
+
+The Pima Indians Diabetes Database is composed of 768 diagnostic measurements from Pima Indian female patients all at least 21 years old. The database was originally collected by the National Institute of Diabetes and Digestive and Kidney Diseases. It includes eight variables: pregnancies, glucose, blood pressure, skin thickness, insulin, BMI, diabetes pedigree function, and age.
+
+```{python}
+#| label: load-packages
+#| message: false
+
+#import libraries
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier,AdaBoostClassifier
+from sklearn.metrics import classification_report, confusion_matrix, roc_auc_score, accuracy_score, precision_score, recall_score
+from imblearn.over_sampling import SMOTE
+```
+
+```{python}
+#| label: load-data
+#| message: false
+
+#Load the dataset
+url = "https://raw.githubusercontent.com/jbrownlee/Datasets/master/pima-indians-diabetes.data.csv"
+column_names = ['Pregnancies', 'Glucose', 'BloodPressure', 'SkinThickness', 
+                'Insulin', 'BMI', 'DiabetesPedigreeFunction', 'Age', 'Outcome']
+df = pd.read_csv(url, names=column_names)
+
+# Display basic information
+print(f"Dataset shape: {df.shape}")
+print(f"\nFirst few rows:")
+print(df.head())
+
+print(f"\nSummary statistics:")
+print(df.describe())
+
+# Class distribution
+print(f"\nClass distribution:")
+print(df['Outcome'].value_counts())
+print(f"\nPercentage with diabetes: {(df['Outcome'].sum() / len(df)) * 100:.1f}%")
+```
+
+## Variables
+
+The eight predictor variables are used to predict the target variable which is the outcome of whether a patient has diabetes or not. The target variable is coded as 0 for no diabetes and 1 for diabetes.
+
+## Class Imbalance
+
+The dataset shows 500 patients without diabetes and 268 with diabetes. This means that there are nearly twice as many non-diabetic cases and should be considered during model training. The imbalance could mean that the model could achieve \~65% accuracy by predicting no diabetes for every patient. To address this, SMOTE creates synthetic examples of the diabetes class. It takes a patient with diabetes, finds its k-nearest neighbor and creates a synthetic sample. This means the model gets more examples to learn from but these synthetic samples are interpolations which means there is a risk of overfitting which is when a model learns training data too well and underperforms when given new data.
+
+# Methods
+
+## Data Preprocessing
+
+I separated the features from the target variable and then split the dataset into 614 patient measurements for training and 154 patient measurements for testing which mimics real-world usage where the model would encounter new patients. 20% of the dataset went to testing and 80% went to training because this ratio gives the model enough data to learn while also retaining enough for evaluation. I used a random_state to ensure reproducibility and a stratified split to maintain class balance so that the test set isn't too varied from the training set. SMOTE was not applied at this stage because SMOTE can only be applied to the training set because test sets must represent real data.
+
+```{python}
+#| label: train-test-split
+
+# Split the data into features (X) and target (y)
+X = df.drop('Outcome', axis=1)
+y = df['Outcome']
+
+# Create train/test split (80/20)
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42, stratify=y
+)
+
+print(f"Training set size: {X_train.shape[0]}")
+print(f"Test set size: {X_test.shape[0]}")
+print(f"\nTraining set class distribution:")
+print(y_train.value_counts())
+```
+
+## Baseline Models (Without SMOTE)
+
+First, I trained the models on the original imbalanced training data to establish a baseline. This shows how the models perform without any alteration to address class imbalance. This provides a starting point for evaluating whether SMOTE improves performance.
+
+```{python}
+#| label: baseline-models
+
+# Initialize the three ensemble models
+rf_baseline = RandomForestClassifier(random_state=42)
+gb_baseline = GradientBoostingClassifier(random_state=42)
+ada_baseline = AdaBoostClassifier(random_state=42)
+
+# Training baseline models
+rf_baseline.fit(X_train, y_train)
+gb_baseline.fit(X_train, y_train)
+ada_baseline.fit(X_train, y_train)
+
+# predictions
+rf_pred_baseline = rf_baseline.predict(X_test)
+gb_pred_baseline = gb_baseline.predict(X_test)
+ada_pred_baseline = ada_baseline.predict(X_test)
+
+print("Baseline models trained successfully")
+```
+
+## SMOTE
+
+SMOTE creates synthetic examples of the minority class (diabetic patients). It does this by using the k-nearest neighbors of existing diabetic patients to make new samples via interpolation. The goal is to balance the training set so the model has equal exposure to diabetic and non-diabetic patients and aid in more robust predictions. After applying SMOTE to the training set only, the class distribution changed from 400 non-diabetic/214 diabetic to 400 non-diabetic/400 diabetic patients.
+
+```{python}
+#| label: apply-smote
+
+#apply SMOTE to the training data only
+smote = SMOTE(random_state=42)
+X_train_smote, y_train_smote = smote.fit_resample(X_train, y_train)
+
+print(f"Original training set size: {X_train.shape[0]}")
+print(f"SMOTE training set size: {X_train_smote.shape[0]}")
+print(f"\nOriginal class distribution:")
+print(y_train.value_counts())
+print(f"\nSMOTE class distribution:")
+print(y_train_smote.value_counts())
+```
+
+## Models with SMOTE
+
+I chose Random Forest, Gradient Boosting, and AdaBoost as my models to be trained with the SMOTE-balanced data. Random Forest builds multiple decision trees and combines predictions, while Gradient Boosting builds trees upon itself. AdaBoost is good for difficult situations where there is imbalanced data because it gives misclassified samples more weight. All of these models are ensemble methods that can handle the non-linear relationships in the dataset.
+
+```{python}
+#| label: smote-models
+
+rf_smote = RandomForestClassifier(random_state=42)
+gb_smote = GradientBoostingClassifier(random_state=42)
+ada_smote = AdaBoostClassifier(random_state=42)
+
+# Train on SMOTE-balanced data
+rf_smote.fit(X_train_smote, y_train_smote)
+gb_smote.fit(X_train_smote, y_train_smote)
+ada_smote.fit(X_train_smote, y_train_smote)
+
+# Make predictions (still using original test set)
+rf_pred_smote = rf_smote.predict(X_test)
+gb_pred_smote = gb_smote.predict(X_test)
+ada_pred_smote = ada_smote.predict(X_test)
+
+print("SMOTE models trained successfully!")
+```
+
+## Evaluation Metrics
+
+-   Accuracy: this is the percentage of correct predictions but can be misleading with imbalanced data (models can have high accuracy but miss most diabetes cases).
+
+-   Recall: this is important in healthcare because we want to ensure that the model catches all patients who have diabetes.
+
+-   Precision: similar to accuracy but looks at how many diabetes-positive patients actually have diabetes. High precision means fewer false positives.
+
+# Results
+
+## Research Question 1: Comparing Ensemble Methods
+
+Of these models, AdaBoost performed the best at baseline. The accuracy is near 78% and both precision and recall are above 60%. Random Forest and Gradient Boosting performed similarly in all metrics but were still less impressive than AdaBoost. With all models, the recall reliability is weak at only 59%-65%. This means that all models are missing a large percent of diabetes cases. AdaBoost performs better because it focuses on misclassified samples but the overall recall for all models means that in a real-world application, many patients would slip through the cracks.
+
+```{python}
+#| label: baseline-performance
+
+#metrics for baseline models
+models = ['Random Forest', 'Gradient Boosting', 'AdaBoost']
+predictions = [rf_pred_baseline, gb_pred_baseline, ada_pred_baseline]
+
+results_baseline = []
+for model_name, pred in zip(models, predictions):
+    accuracy = accuracy_score(y_test, pred)
+    precision = precision_score(y_test, pred)
+    recall = recall_score(y_test, pred)
+    results_baseline.append({
+        'Model': model_name,
+        'Accuracy': accuracy,
+        'Precision': precision,
+        'Recall': recall
+    })
+
+baseline_df = pd.DataFrame(results_baseline)
+print("Baseline Model Performance:")
+print(baseline_df)
+```
+
+```{python}
+#| label: visualize-baseline-comparison
+
+#visualization comparing baseline models
+fig, ax = plt.subplots(figsize=(10, 6))
+baseline_df.set_index('Model')[['Accuracy', 'Precision', 'Recall']].plot(
+    kind='bar', ax=ax
+)
+plt.title('Baseline Model Performance Comparison')
+plt.ylabel('Score')
+plt.xlabel('Model')
+plt.xticks(rotation=45)
+plt.legend(title='Metric')
+plt.tight_layout()
+plt.show()
+```
+
+## Research Question 2: Impact of SMOTE
+
+SMOTE improved performance across all models.
+
+```{python}
+#| label: compare-smote-performance
+
+#calculate metrics for SMOTE models
+results_smote = []
+predictions_smote = [rf_pred_smote, gb_pred_smote, ada_pred_smote]
+
+for model_name, pred in zip(models, predictions_smote):
+    accuracy = accuracy_score(y_test, pred)
+    precision = precision_score(y_test, pred)
+    recall = recall_score(y_test, pred)
+    results_smote.append({
+        'Model': model_name,
+        'Accuracy': accuracy,
+        'Precision': precision,
+        'Recall': recall
+    })
+
+smote_df = pd.DataFrame(results_smote)
+print("SMOTE Model Performance:")
+print(smote_df)
+```
+
+```{python}
+#| label: visualize-smote-comparison
+
+#side-by-side comparison
+fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 6))
+
+baseline_df.set_index('Model')[['Accuracy', 'Precision', 'Recall']].plot(
+    kind='bar', ax=ax1, title='Baseline Models'
+)
+ax1.set_ylabel('Score')
+ax1.set_xlabel('Model')
+ax1.set_xticklabels(ax1.get_xticklabels(), rotation=45)
+
+smote_df.set_index('Model')[['Accuracy', 'Precision', 'Recall']].plot(
+    kind='bar', ax=ax2, title='SMOTE Models'
+)
+ax2.set_ylabel('Score')
+ax2.set_xlabel('Model')
+ax2.set_xticklabels(ax2.get_xticklabels(), rotation=45)
+
+plt.tight_layout()
+plt.show()
+```
+
+Interestingly, once SMOTE was applied, Gradient Boosting became the most attractive model. While the precision was lowered, the accuracy and recall were greatly boosted. With all models, SMOTE application saw an improvement in recall.
+
+## Feature Importance
+
+Of the eight variables, glucose and BMI were the most important. Pregnancies and skin thickness appeared to have little importance.
+
+```{python}
+#| label: feature-importance
+
+#feature importance from the best performing model
+feature_importance = pd.DataFrame({
+    'Feature': X.columns,
+    'Importance': gb_smote.feature_importances_
+}).sort_values('Importance', ascending=False)
+
+print("Feature Importance:")
+print(feature_importance)
+
+# Visualize
+plt.figure(figsize=(10, 6))
+plt.barh(feature_importance['Feature'], feature_importance['Importance'])
+plt.xlabel('Importance')
+plt.title('Feature Importance from Best Model')
+plt.gca().invert_yaxis()
+plt.tight_layout()
+plt.show()
+```
+
+For diabetes prediction, a patient's glucose is an important variable. Alongside this, their BMI and their age are important, but glucose appears to be over two times more impactful than these variables.
+
+# Discussion
+
+## Key Findings
+
+The dataset had a class imbalance with 65% non-diabetic and 35% diabetic patients. Prior to applying SMOTE to address class imbalance, AdaBoost performed best with 77.9% accuracy but only 64.8% recall. This means that the model missed nearly 35% of diabetic patients which is not viable in real-world healthcare settings. Once SMOTE was applied, the training data was improved. The best performing model was then Gradient Boosting with nearly 80% accuracy and 70% recall. While this isn't ideal, it's a large improvement from the inital AdaBoost performance. Feature importance shows that glucose is the largest predictor of diabetes with BMI and age falling close behind, which aligns with current medical knowledge. While SMOTE did improve detection rates, the model misses nearly 30% of cases which means that additional data collection is needed and the model should be used as a diagnostic screening tool and not a replacement for clinical judgment.
+
+## Model Performance
+
+At baseline, AdaBoost performed the best. This is because AdaBoost adds more weight to misclassified samples. After SMOTE was applied, Gradient Boosting was the best performing model and had the highest accuracy out of all models.
+
+## Impact of SMOTE
+
+SMOTE application showed an improvement across all models in recall but did affect precision. Precision can be affected because false positives can occur if the synthetic data has a large overlap.
+
+## Limitations
+
+With a dataset of only 768 patients, the dataset was small. In addition to a smaller dataset, the class imbalance meant that the models, at baseline, veered toward having high accuracy solely because of the overrepresentation of the non-diabetic patients.
+
+## Real-World Implications
+
+In a real-world application, the SMOTE-adjusted Gradient Boosting model could be used as a potential screening tool for diabetes. While it would be unable to replace clinical judgement and with its current performance would still need a lot of context provided to healthcare providers, the model could be useful for early detection.
+
+# Conclusion
+
+This project showed that class imbalance has a large impact on model performance. Before SMOTE was applied, the best model, AdaBoost, had reasonable accuracy but missed a large portion of positive cases which rendered it unsuitable for healthcare use. Once SMOTE was applied, recall improved across all models and Gradient Boosting became the best performing model with nearly 80% accuracy and 70% recall. The adjusted model still falls short of identifying diabetic patients reliably but shows value as a screening tool rather than a diagnostic substitute. The small sample size and class imbalance limit the generalization of the results, so a larger dataset would be ideal for building a more robust model. Regardless, the project shows how data balancing techniques like SMOTE can help improve detection rates in healthcare datasets.
+

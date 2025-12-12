@@ -1,2 +1,6 @@
-jupyter
-nbformat
+pandas
+numpy
+matplotlib
+seaborn
+scikit-learn
+imbalanced-learn
